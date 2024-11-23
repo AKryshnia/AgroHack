@@ -1,113 +1,100 @@
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import AlignInfo
+from Bio import AlignIO
 import matplotlib.pyplot as plt
 from collections import Counter
 import subprocess
-import shutil  # Добавлен импорт shutil
 import os
-
-# Пути к файлам
-ancient_barley_nuc_file = 'data/ancient_barley.fasta'
-hordeum_vulgare_protein_file = 'data/protein.faa'
-hordeum_spontaneum_protein_file = 'data/spontaneum_protein.faa'
-
-# Целевые гены
-target_genes = ['Btr1', 'Btr2', 'Vrs1']
+import shutil
 
 
-def clean_sequence(sequence):
-    """Очищает последовательность от недопустимых символов"""
-    valid_chars = set("ATGCatgc")
-    return "".join([char for char in sequence if char in valid_chars])
-
-
-def read_nucleotide_sequences(file_path):
-    """Чтение всех последовательностей из файла FASTA и очистка"""
-    sequences = []
-    for record in SeqIO.parse(file_path, 'fasta'):
-        cleaned_seq = clean_sequence(str(record.seq))
-        record.seq = cleaned_seq  # Замена на очищенную последовательность
-        sequences.append(record)
-    return sequences
-
-
-def translate_sequence(nuc_record):
-    """Трансляция нуклеотидной последовательности в белковую"""
-    protein_seq = nuc_record.seq.translate(to_stop=True)
-    protein_record = SeqRecord(protein_seq, id=nuc_record.id, description='Translated protein sequence')
-    return protein_record
-
-
+# Функция для проверки установки Clustal Omega
 def check_clustal_omega_installed():
-    """Проверяет, установлен ли Clustal Omega"""
-    if not shutil.which('clustalo'):
-        raise EnvironmentError("Clustal Omega не найден. Убедитесь, что он установлен и доступен в PATH.")
+    if not shutil.which("clustalo"):
+        raise EnvironmentError("Clustal Omega не установлен. Убедитесь, что он доступен в PATH.")
 
 
+# Функция для выполнения Clustal Omega
 def run_clustal_omega(input_file, output_file):
-    """Выполняет выравнивание с помощью Clustal Omega"""
     try:
         subprocess.run(
-            ['clustalo', '-i', input_file, '-o', output_file, '--auto', '--seqtype=Protein'],
-            check=True
+            ["clustalo", "-i", input_file, "-o", output_file, "--auto", "--seqtype=Protein", "--force"],
+            check=True,
         )
-        print(f'Выравнивание завершено. Результаты сохранены в {output_file}')
+        print(f"Выравнивание завершено. Результаты сохранены в {output_file}")
     except subprocess.CalledProcessError as e:
-        print(f'Ошибка при выполнении Clustal Omega: {e}')
+        print(f"Ошибка при выполнении Clustal Omega: {e}")
 
 
-def calculate_amino_acid_frequency(alignment_file):
-    """Расчёт частоты аминокислот в выравненных последовательностях"""
-    alignment = SeqIO.parse(alignment_file, 'fasta')
+# Функция для подсчета частоты аминокислот
+def calculate_amino_acid_frequency(alignment):
     amino_acid_counts = Counter()
     for record in alignment:
-        amino_acid_counts.update(str(record.seq).replace('-', ''))
+        amino_acid_counts.update(str(record.seq).replace("-", ""))  # Убираем gap-символы
     total_count = sum(amino_acid_counts.values())
     frequencies = {aa: count / total_count for aa, count in amino_acid_counts.items()}
     return frequencies
 
 
-def plot_amino_acid_frequencies(frequencies):
-    """Визуализация частоты аминокислот"""
+# Главная функция
+def main():
+    # Пути к файлам
+    ancient_barley_nuc_file = "data/ancient_barley.fasta"
+    vulgare_file = "data/protein.faa"
+    spontaneum_file = "data/spontaneum_genes.fasta"
+    combined_file = "combined_sequences.fasta"
+    aligned_file = "aligned_sequences.fasta"
+
+    # Проверяем установку Clustal Omega
+    check_clustal_omega_installed()
+
+    # Чтение древних последовательностей и трансляция в белковые
+    ancient_nuc_sequences = list(SeqIO.parse(ancient_barley_nuc_file, "fasta"))
+    ancient_protein_sequences = [
+        SeqRecord(seq.seq.translate(to_stop=True), id=seq.id, description="Translated protein sequence")
+        for seq in ancient_nuc_sequences
+    ]
+    print(f"Найдено последовательностей в древнем ячмене: {len(ancient_protein_sequences)}")
+    for i, protein in enumerate(ancient_protein_sequences):
+        print(f"Длина белковой последовательности {i + 1}: {len(protein.seq)}")
+
+    # Чтение современных последовательностей
+    vulgare_sequences = list(SeqIO.parse(vulgare_file, "fasta"))
+    spontaneum_sequences = list(SeqIO.parse(spontaneum_file, "fasta"))
+
+    # Объединение всех последовательностей
+    all_sequences = ancient_protein_sequences + vulgare_sequences + spontaneum_sequences
+    SeqIO.write(all_sequences, combined_file, "fasta")
+    print(f"Объединенные последовательности сохранены в {combined_file}")
+
+    # Запуск Clustal Omega для выравнивания
+    run_clustal_omega(combined_file, aligned_file)
+
+    # Чтение выравнивания
+    alignment = AlignIO.read(aligned_file, "fasta")
+    print(f"Количество выравненных последовательностей: {len(alignment)}")
+    print(f"Длина выравнивания: {alignment.get_alignment_length()}")
+
+    # Получение консенсусной последовательности
+    summary_align = AlignInfo.SummaryInfo(alignment)
+    consensus = summary_align.dumb_consensus()
+    print(f"Консенсусная последовательность: {consensus}")
+
+    # Частота аминокислот
+    frequencies = calculate_amino_acid_frequency(alignment)
+
+    # Построение гистограммы
     amino_acids = list(frequencies.keys())
     freq_values = list(frequencies.values())
     plt.figure(figsize=(10, 6))
     plt.bar(amino_acids, freq_values)
-    plt.xlabel('Аминокислоты')
-    plt.ylabel('Частота')
-    plt.title('Частота аминокислот в выравненных последовательностях')
-    plt.show()
+    plt.xlabel("Аминокислоты")
+    plt.ylabel("Частота")
+    plt.title("Частота аминокислот в выравненных последовательностях")
+    plt.savefig("amino_acid_frequencies.png")
+    print("График сохранён в файл: amino_acid_frequencies.png")
 
 
-def main():
-    # Проверка Clustal Omega
-    check_clustal_omega_installed()
-
-    # Чтение и трансляция древних последовательностей
-    ancient_nuc_sequences = read_nucleotide_sequences(ancient_barley_nuc_file)
-    print(f'Найдено последовательностей в древнем ячмене: {len(ancient_nuc_sequences)}')
-
-    ancient_protein_sequences = [
-        translate_sequence(nuc_record) for nuc_record in ancient_nuc_sequences
-    ]
-    for i, protein in enumerate(ancient_protein_sequences):
-        print(f'Длина белковой последовательности {i + 1}: {len(protein.seq)}')
-
-    # Сохранение белковых последовательностей в файл
-    combined_file = 'combined_sequences.fasta'
-    SeqIO.write(ancient_protein_sequences, combined_file, 'fasta')
-
-    # Выполнение выравнивания
-    aligned_file = 'aligned_sequences.fasta'
-    run_clustal_omega(combined_file, aligned_file)
-
-    # Анализ частоты аминокислот
-    frequencies = calculate_amino_acid_frequency(aligned_file)
-
-    # Построение гистограммы
-    plot_amino_acid_frequencies(frequencies)
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
