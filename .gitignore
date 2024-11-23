@@ -1,6 +1,11 @@
 hordeum_vulgare.fasta
 spontaneum_genes.fasta
 
+similarities_table.txt
+differences_table.txt
+
+output/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

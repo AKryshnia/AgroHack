@@ -1,4 +1,0 @@
-Подсчет различий между группами:
-ancient_vs_vulgare: 2775 замен
-ancient_vs_spontaneum: 1455 замен
-vulgare_vs_spontaneum: 5390 замен

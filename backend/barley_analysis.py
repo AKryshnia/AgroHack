@@ -11,6 +11,34 @@ import shutil
 Entrez.email = "your_email@example.com"
 
 
+# Определяем путь к директории, где находится скрипт
+
+def create_dir_if_not_exists(dir):
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+        print(f"Директория {dir} была создана.")
+    else:
+        print(f"Директория {dir} уже существует.")
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+data_dir = os.path.join(script_dir, "data")
+output_dir = os.path.join(script_dir, "output")
+ancient_barley_nuc_file = os.path.join(data_dir, "ancient_barley.fasta")
+vulgare_file = os.path.join(data_dir, "hordeum_vulgare.fasta")
+spontaneum_file = os.path.join(data_dir, "spontaneum_genes.fasta")
+combined_file = os.path.join(output_dir, "combined_sequences.fasta")
+aligned_file = os.path.join(output_dir, "aligned_sequences.fasta")
+differences_file = os.path.join(output_dir, "differences_table.txt")
+similarity_file = os.path.join(output_dir, "similarities_table.txt")
+consensus_file = os.path.join(output_dir, "consensus_sequences.txt")
+amino_acid_frequency_file = os.path.join(output_dir, "amino_acid_frequencies.png")
+
+create_dir_if_not_exists(data_dir)
+create_dir_if_not_exists(output_dir)
+create_dir_if_not_exists(script_dir)
+
+
 # Функция для проверки установки Clustal Omega
 def check_clustal_omega_installed():
     if not shutil.which("clustalo"):
@@ -143,13 +171,6 @@ def main():
     if not os.path.exists("data"):
         os.makedirs("data")
 
-    # Пути к файлам
-    ancient_barley_nuc_file = "backend/data/ancient_barley.fasta"
-    vulgare_file = "backend/data/hordeum_vulgare.fasta"
-    spontaneum_file = "backend/data/spontaneum_genes.fasta"
-    combined_file = "combined_sequences.fasta"
-    aligned_file = "aligned_sequences.fasta"
-
     # Проверяем установку Clustal Omega
     check_clustal_omega_installed()
 
@@ -224,11 +245,11 @@ def main():
     plt.ylabel("Частота")
     plt.title("Частота аминокислот в выравненных последовательностях")
     plt.tight_layout()
-    plt.savefig("amino_acid_frequencies.png")
+    plt.savefig(amino_acid_frequency_file)
     print("График сохранён в файл: amino_acid_frequencies.png")
 
     # Сохранение консенсусных последовательностей в файл
-    with open("consensus_sequences.txt", "w") as f:
+    with open(consensus_file, "w") as f:
         f.write("Консенсусная последовательность:\n")
         f.write(str(consensus) + "\n\n")
         f.write("Дегенеративная консенсусная последовательность:\n")
@@ -278,7 +299,6 @@ def main():
                     similarity = (matches / alignment_length) * 100
                     total_similarity += similarity
                     comparisons += 1
-                    print(f"Сравнение: {seq1.id} vs {seq2.id} - Схожесть: {similarity:.2f}%")
 
         return total_similarity / comparisons if comparisons > 0 else 0
 
@@ -299,7 +319,7 @@ def main():
     }
 
     # Сохранение таблицы с подсчетом различий и схожести
-    with open("backend/differences_table.txt", "w") as f:
+    with open(differences_file, "w") as f:
         f.write("Подсчет различий между группами:\n")
         for key, value in differences.items():
             f.write(f"{key}: {value} замен\n")
@@ -310,13 +330,13 @@ def main():
 
 
     # Сохранение таблицы с подсчетом различий
-    with open("backend/differences_table.txt", "w") as f:
+    with open(differences_file, "w") as f:
         f.write("Подсчет различий между группами:\n")
         for key, value in differences.items():
             f.write(f"{key}: {value} замен\n")
     print("Таблица с подсчетом различий сохранена в файл: differences_table.txt")
 
-    with open("backend/similarities_table.txt", "w") as f:
+    with open(similarity_file, "w") as f:
         f.write("Подсчет различий между группами:\n")
         for key, value in differences.items():
             f.write(f"{key}: {value} замен\n")
