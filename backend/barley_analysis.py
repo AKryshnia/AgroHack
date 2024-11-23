@@ -144,7 +144,7 @@ def main():
         os.makedirs("data")
 
     # Пути к файлам
-    ancient_barley_nuc_file = "data/ancient_barley.fasta"
+    ancient_barley_nuc_file = "backend/data/ancient_barley.fasta"
     vulgare_file = "backend/data/hordeum_vulgare.fasta"
     spontaneum_file = "backend/data/spontaneum_genes.fasta"
     combined_file = "combined_sequences.fasta"
@@ -257,6 +257,31 @@ def main():
                     if a != b:
                         count += 1
         return count
+    
+    # Функция для подсчета сходства между двумя группами
+    def count_similarities(group1, group2):
+        total_similarity = 0
+        comparisons = 0
+        for seq1 in group1:
+            for seq2 in group2:
+                seq1_str = str(seq1.seq)
+                seq2_str = str(seq2.seq)
+
+                # Игнорируем выравнивания, где одна из последовательностей пустая
+                if not seq1_str or not seq2_str:
+                    continue
+                
+                matches = sum(a == b for a, b in zip(seq1_str, seq2_str) if a != '-' and b != '-')
+                alignment_length = sum(a != '-' and b != '-' for a, b in zip(seq1_str, seq2_str))
+
+                if alignment_length > 0:
+                    similarity = (matches / alignment_length) * 100
+                    total_similarity += similarity
+                    comparisons += 1
+                    print(f"Сравнение: {seq1.id} vs {seq2.id} - Схожесть: {similarity:.2f}%")
+
+        return total_similarity / comparisons if comparisons > 0 else 0
+
 
     differences["ancient_vs_vulgare"] = count_differences(ancient_seqs, vulgare_seqs)
     differences["ancient_vs_spontaneum"] = count_differences(
@@ -266,12 +291,39 @@ def main():
         vulgare_seqs, spontaneum_seqs
     )
 
+        # Схожесть между группами
+    similarity = {
+        "ancient_vs_vulgare": count_similarities(ancient_seqs, vulgare_seqs),
+        "ancient_vs_spontaneum": count_similarities(ancient_seqs, spontaneum_seqs),
+        "vulgare_vs_spontaneum": count_similarities(vulgare_seqs, spontaneum_seqs),
+    }
+
+    # Сохранение таблицы с подсчетом различий и схожести
+    with open("backend/differences_table.txt", "w") as f:
+        f.write("Подсчет различий между группами:\n")
+        for key, value in differences.items():
+            f.write(f"{key}: {value} замен\n")
+        f.write("\nСхожесть между группами:\n")
+        for key, value in similarity.items():
+            f.write(f"{key}: {value:.2f}% схожести\n")
+    print("Таблица с подсчетом различий и схожести сохранена в файл: differences_table.txt")
+
+
     # Сохранение таблицы с подсчетом различий
-    with open("differences_table.txt", "w") as f:
+    with open("backend/differences_table.txt", "w") as f:
         f.write("Подсчет различий между группами:\n")
         for key, value in differences.items():
             f.write(f"{key}: {value} замен\n")
     print("Таблица с подсчетом различий сохранена в файл: differences_table.txt")
+
+    with open("backend/similarities_table.txt", "w") as f:
+        f.write("Подсчет различий между группами:\n")
+        for key, value in differences.items():
+            f.write(f"{key}: {value} замен\n")
+        f.write("\nСхожесть между группами:\n")
+        for key, value in similarity.items():
+            f.write(f"{key}: {value:.2f}% схожести\n")
+    print("Таблица с подсчетом различий и схожести сохранена в файл: similarities_table.txt")
 
 
 if __name__ == "__main__":
