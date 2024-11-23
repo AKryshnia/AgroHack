@@ -145,8 +145,8 @@ def main():
 
     # Пути к файлам
     ancient_barley_nuc_file = "data/ancient_barley.fasta"
-    vulgare_file = "data/hordeum_vulgare.fasta"
-    spontaneum_file = "data/spontaneum_genes.fasta"
+    vulgare_file = "backend/data/hordeum_vulgare.fasta"
+    spontaneum_file = "backend/data/spontaneum_genes.fasta"
     combined_file = "combined_sequences.fasta"
     aligned_file = "aligned_sequences.fasta"
 
