@@ -58,7 +58,6 @@ create_dir_if_not_exists(script_dir)
 
 # Главная функция
 def main():
-
     # Укажите свою почту для работы с NCBI
     Entrez.email = "your_email@example.com"
 
@@ -282,5 +281,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

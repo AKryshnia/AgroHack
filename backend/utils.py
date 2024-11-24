@@ -14,7 +14,6 @@ import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from folders import (
-    output_dir,
     mutation_analysis_file,
     morphology_report_file,
     phylogenetic_tree_file,
@@ -147,6 +146,7 @@ def fetch_gene_sequences(gene, organism, database, max_results, max_sequence_len
     except Exception as e:
         logger.error(f"Ошибка при скачивании данных для {gene}: {e}")
         return []
+
 
 def download_sequences_for_genes(
     genes,
