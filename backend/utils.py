@@ -11,6 +11,7 @@ from Bio import motifs
 from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
 import matplotlib.pyplot as plt
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from folders import (
     output_dir,
@@ -90,7 +91,63 @@ def download_sequence_by_accession(accession_number, output_file, max_retries=3)
     return False
 
 
-# Функция для поиска и скачивания данных из NCBI для указанных генов
+def fetch_gene_sequences(gene, organism, database, max_results, max_sequence_length):
+    """Скачивает последовательности для одного гена."""
+    try:
+        search_query = f"{organism}[Organism] AND {gene}[Gene]"
+        logger.info(f"Ищем последовательности для запроса: {search_query}")
+
+        # Поиск записей в базе данных
+        handle = Entrez.esearch(db=database, term=search_query, retmax=1000)
+        record = Entrez.read(handle)
+        handle.close()
+
+        # Получение ID найденных записей
+        ids = record["IdList"]
+        if not ids:
+            logger.warning(f"Нет найденных записей для {gene}.")
+            return []
+
+        # Получаем информацию о длине последовательностей
+        handle = Entrez.esummary(db=database, id=ids)
+        summaries = Entrez.read(handle)
+        handle.close()
+
+        # Фильтруем последовательности по длине
+        filtered_ids = []
+        for docsum in summaries["DocumentSummary"]:
+            seq_length = int(docsum.get("Length", 0))
+            if seq_length <= max_sequence_length:
+                filtered_ids.append(docsum["Id"])
+            if len(filtered_ids) >= max_results:
+                break
+
+        if not filtered_ids:
+            logger.warning(
+                f"Нет последовательностей длиной <= {max_sequence_length} для {gene}."
+            )
+            return []
+
+        logger.info(
+            f"Найдено {len(filtered_ids)} последовательностей для {gene}. Скачиваем данные..."
+        )
+
+        # Скачивание последовательностей в формате FASTA
+        fasta_handle = Entrez.efetch(
+            db=database, id=filtered_ids, rettype="fasta", retmode="text"
+        )
+        sequence_data = fasta_handle.read()
+        fasta_handle.close()
+
+        # Чтение последовательностей в список
+        seqs = list(SeqIO.parse(sequence_data.splitlines(), "fasta"))
+        logger.info(f"Последовательности гена {gene} добавлены.")
+        return seqs
+
+    except Exception as e:
+        logger.error(f"Ошибка при скачивании данных для {gene}: {e}")
+        return []
+
 def download_sequences_for_genes(
     genes,
     organism,
@@ -98,68 +155,32 @@ def download_sequences_for_genes(
     database="nucleotide",
     max_results=5,
     max_sequence_length=2000,
+    max_workers=5,
 ):
+    """Скачивает последовательности для списка генов с использованием многопоточности."""
     sequences = []
-    for gene in genes:
-        search_query = f"{organism}[Organism] AND {gene}[Gene]"
-        try:
-            logger.info(f"Ищем последовательности для запроса: {search_query}")
 
-            # Поиск записей в базе данных
-            handle = Entrez.esearch(db=database, term=search_query, retmax=1000)
-            record = Entrez.read(handle)
-            handle.close()
+    # Используем ThreadPoolExecutor для параллельной загрузки данных
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_gene = {
+            executor.submit(
+                fetch_gene_sequences,
+                gene,
+                organism,
+                database,
+                max_results,
+                max_sequence_length,
+            ): gene
+            for gene in genes
+        }
 
-            # Получение ID найденных записей
-            ids = record["IdList"]
-            if not ids:
-                logger.warning(f"Нет найденных записей для {gene}.")
-                continue
-
-            # Получаем информацию о длине последовательностей
-            handle = Entrez.esummary(db=database, id=ids)
-            summaries = Entrez.read(handle)
-            handle.close()
-
-            # Фильтруем последовательности по длине
-            filtered_ids = []
-            for docsum in summaries["DocumentSummary"]:
-                seq_length = int(docsum.get("Length", 0))
-                if seq_length <= max_sequence_length:
-                    filtered_ids.append(docsum["Id"])
-                if len(filtered_ids) >= max_results:
-                    break
-
-            if not filtered_ids:
-                logger.warning(
-                    f"Нет последовательностей длиной <= {max_sequence_length} для {gene}."
-                )
-                continue
-
-            logger.info(
-                f"Найдено {len(filtered_ids)} последовательностей для {gene}. Скачиваем данные..."
-            )
-
-            # Скачивание последовательностей в формате FASTA
-            fasta_handle = Entrez.efetch(
-                db=database, id=filtered_ids, rettype="fasta", retmode="text"
-            )
-            sequence_data = fasta_handle.read()
-            fasta_handle.close()
-
-            # Запись во временный файл
-            temp_file = os.path.join(output_dir, f"temp_{gene}.fasta")
-            with open(temp_file, "w") as f:
-                f.write(sequence_data)
-
-            # Чтение последовательностей и добавление в список
-            seqs = list(SeqIO.parse(temp_file, "fasta"))
-            sequences.extend(seqs)
-            os.remove(temp_file)
-            logger.info(f"Последовательности гена {gene} добавлены.")
-
-        except Exception as e:
-            logger.error(f"Ошибка при скачивании данных для {gene}: {e}")
+        for future in as_completed(future_to_gene):
+            gene = future_to_gene[future]
+            try:
+                seqs = future.result()
+                sequences.extend(seqs)
+            except Exception as e:
+                logger.error(f"Ошибка при обработке гена {gene}: {e}")
 
     if sequences:
         # Сохраняем объединенные последовательности в output_file

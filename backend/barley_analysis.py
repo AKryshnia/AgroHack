@@ -58,6 +58,24 @@ create_dir_if_not_exists(script_dir)
 
 # Главная функция
 def main():
+
+    # Укажите свою почту для работы с NCBI
+    Entrez.email = "your_email@example.com"
+
+    # Настройка логирования
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s: %(message)s",
+        filename="analysis.log",
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info("Запуск анализа...")
+
+    create_dir_if_not_exists(data_dir)
+    create_dir_if_not_exists(output_dir)
+    create_dir_if_not_exists(script_dir)
+
     # Проверяем наличие директории data
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
@@ -264,4 +282,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
