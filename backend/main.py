@@ -1,3 +1,5 @@
+# main.py
+
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,11 +28,11 @@ app.add_middleware(
 # Путь к директории данных и результатам
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
-RESULTS_DIR = BASE_DIR
+OUTPUT_DIR = BASE_DIR / "output"
 
-# Убедимся, что директория данных существует
+# Убедимся, что директории существуют
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Функция для запуска barley_analysis.py
 def run_analysis():
@@ -76,18 +78,8 @@ async def upload_file(file: UploadFile = File(...)):
     # Запуск анализа
     run_analysis()
 
-    # Предполагается, что скрипт генерирует следующие файлы:
-    # combined_sequences.fasta, aligned_sequences.fasta, consensus_sequences.txt,
-    # amino_acid_frequencies.png, differences_table.txt
-
-    # Создаём список доступных файлов для скачивания
-    generated_files = [
-        "combined_sequences.fasta",
-        "aligned_sequences.fasta",
-        "consensus_sequences.txt",
-        "amino_acid_frequencies.png",
-        "differences_table.txt",
-    ]
+    # Собираем список файлов из директории output
+    generated_files = [f.name for f in OUTPUT_DIR.iterdir() if f.is_file()]
 
     # Вернём список файлов для скачивания
     return {"message": "Анализ выполнен успешно", "files": generated_files}
@@ -95,18 +87,7 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.get("/api/download/{filename}")
 def download_file(filename: str):
-    allowed_files = [
-        "combined_sequences.fasta",
-        "aligned_sequences.fasta",
-        "consensus_sequences.txt",
-        "amino_acid_frequencies.png",
-        "differences_table.txt",
-    ]
-
-    if filename not in allowed_files:
-        raise HTTPException(status_code=404, detail="Файл не найден")
-
-    file_path = RESULTS_DIR / filename
+    file_path = OUTPUT_DIR / filename
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Файл не найден")
