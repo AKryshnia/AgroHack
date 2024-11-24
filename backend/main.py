@@ -4,7 +4,6 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
-import os
 from pathlib import Path
 import shutil
 
@@ -33,6 +32,7 @@ OUTPUT_DIR = BASE_DIR / "output"
 # Убедимся, что директории существуют
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # Функция для запуска barley_analysis.py
 def run_analysis():

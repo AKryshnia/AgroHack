@@ -4,6 +4,10 @@ spontaneum_genes.fasta
 similarities_table.txt
 differences_table.txt
 
+Btr1_reference.fasta
+Btr2_reference.fasta
+Vrs1_reference.fasta
+
 output/
 
 # Byte-compiled / optimized / DLL files
